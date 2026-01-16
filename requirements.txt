@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+opencv-python
+ultralytics
+tensorflow
+google-generativeai
+pydantic
+python-multipart
+sqlalchemy
+pydantic-settings
+python-dotenv
+websockets
+jinja2

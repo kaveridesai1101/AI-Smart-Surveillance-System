@@ -1,0 +1,11 @@
+import sqlite3
+
+conn = sqlite3.connect('surveillance_system.db')
+cursor = conn.cursor()
+
+print("All cameras in database:")
+cameras = cursor.execute("SELECT id, name, owner_id FROM cameras").fetchall()
+for cam in cameras:
+    print(f"  ID: {cam[0]}, Name: {cam[1]}, Owner: '{cam[2]}'")
+
+conn.close()
