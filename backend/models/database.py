@@ -19,7 +19,6 @@ class Incident(Base):
     ai_summary = Column(Text, nullable=True)
     confidence = Column(Float, default=0.0)
     owner_id = Column(String, default="admin")
-    status = Column(String, default="Active")
     snapshot_path = Column(String, nullable=True)
 
 class Camera(Base):

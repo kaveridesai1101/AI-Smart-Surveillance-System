@@ -37,6 +37,9 @@ const IncidentDetailModal = ({ incident, userRole, onClose, onHide, onRestore })
                     <div className="flex items-center gap-6 text-slate-400 font-medium">
                         <div className="flex items-center gap-2"><Clock size={16} className="text-primary" /> {new Date(incident.timestamp).toLocaleString()}</div>
                         <div className="flex items-center gap-2"><MapPin size={16} className="text-primary" /> {incident.camera_id || 'Unknown Source'}</div>
+                        {userRole === 'admin' && (
+                            <div className="flex items-center gap-2 border-l border-white/10 pl-6"><Activity size={16} className="text-primary" /> Assigned Operator: {incident.owner_id || 'SYSTEM'}</div>
+                        )}
                     </div>
                 </div>
 

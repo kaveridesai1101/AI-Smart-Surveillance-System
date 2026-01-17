@@ -24,21 +24,33 @@ async def get_incident(incident_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Incident not found")
     return incident
 
-@router.patch("/{incident_id}/status")
-async def update_incident_status(incident_id: int, status: str, db: Session = Depends(get_db)):
+from pydantic import BaseModel
+from typing import Optional
+
+class IncidentUpdate(BaseModel):
+    status: str
+    notes: Optional[str] = None
+
+from backend.api.websocket_manager import manager
+
+@router.put("/{incident_id}")
+async def update_incident(incident_id: int, update: IncidentUpdate, db: Session = Depends(get_db)):
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
     
-    incident.status = status
+    incident.status = update.status
+    # incident.notes = update.notes # stored in DB if column exists, for now just log/ack
+    
     db.commit()
-
-    # Broadcast update to all connected clients
-    from backend.main import broadcast_alert
-    await broadcast_alert({
-        "type": "incident_update",
-        "id": incident_id,
-        "status": status
+    db.refresh(incident)
+    
+    # Broadcast update
+    await manager.broadcast({
+        "msg_type": "incident_update",
+        "id": incident.id,
+        "status": incident.status,
+        "notes": update.notes
     })
-
-    return {"message": "Status updated", "id": incident_id, "status": status}
+    
+    return incident

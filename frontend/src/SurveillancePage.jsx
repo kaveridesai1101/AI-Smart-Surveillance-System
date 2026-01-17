@@ -78,7 +78,15 @@ const SurveillancePage = ({ userRole }) => {
                         status: data.score > 0.5 ? (data.confirmed ? 'Confirmed Anomaly' : 'Suspicious Movement') : 'Idle',
                         isConfirmed: data.confirmed
                     }));
-                } else if (data.type) {
+                } else if (data.msg_type === 'incident_update') {
+                    // Check if this update belongs to a camera in our current list
+                    // For simplicity, we just trigger a stats update to show "Activity"
+                    setDetectionStats(prev => ({
+                        ...prev,
+                        status: data.status,
+                        isConfirmed: data.status === 'Acknowledged'
+                    }));
+                } else if (data.msg_type === 'incident' || data.type === 'Rapid Escalation') {
                     // New incident
                     setDetectionStats(prev => ({
                         ...prev,
@@ -223,10 +231,22 @@ const SurveillancePage = ({ userRole }) => {
                                                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                                                     <div>
                                                         <p className="text-xs font-bold text-white shadow-black drop-shadow-md">{cam.name}</p>
-                                                        <p className="text-[9px] font-mono text-slate-300">{cam.source_url || 'HARDWARE-LINK'}</p>
+                                                        <div className="flex gap-2 items-center">
+                                                            <p className="text-[9px] font-mono text-slate-300">{cam.source_url || 'HARDWARE-LINK'}</p>
+                                                            {userRole === 'admin' && (
+                                                                <span className="text-[8px] bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded font-black uppercase tracking-widest flex items-center gap-1">
+                                                                    <Activity size={8} /> OP: {cam.owner_id || 'SYSTEM'}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <span className="px-2 py-1 bg-red-500 text-white text-[9px] font-bold rounded uppercase">LIVE</span>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="px-2 py-1 bg-red-500 text-white text-[9px] font-bold rounded uppercase">LIVE</span>
+                                                    {userRole === 'admin' && (
+                                                        <span className="text-[8px] text-slate-400 font-mono bg-black/40 px-1 rounded uppercase">assigned area: {selectedArea.name}</span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {/* IMG Source */}

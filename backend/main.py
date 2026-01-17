@@ -8,6 +8,7 @@ import asyncio
 from backend.models.database import init_db, SessionLocal, Incident
 from backend.api.routes import incidents, cameras
 from backend.ai.processor import AIProcessor
+from backend.api.websocket_manager import manager
 
 app = FastAPI(title="Sentinel AI - Enterprise Surveillance API")
 
@@ -22,8 +23,7 @@ def save_incident_to_db(incident_data: dict):
             description=incident_data['description'],
             ai_summary=incident_data['ai_summary'],
             confidence=incident_data.get('escalation_score', 0.0),
-            owner_id=incident_data.get('owner_id', 'admin'),
-            status=incident_data.get('status', 'Active')
+            owner_id=incident_data.get('owner_id', 'admin')
         )
         db.add(incident)
         db.commit()
@@ -44,35 +44,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Active WebSockets
-active_connections: List[WebSocket] = []
-
 async def broadcast_alert(alert_data: dict):
-    # Ensure type is set if missing (for legacy or direct calls)
-    if "type" not in alert_data:
-        alert_data["type"] = "incident"
-    elif alert_data["type"] not in ["incident_update", "stats"]:
-        # If it's a specific detection type, wrap it
-        alert_data["detection_type"] = alert_data["type"]
-        alert_data["type"] = "incident"
-
-    for connection in active_connections:
-        await connection.send_text(json.dumps(alert_data))
+    await manager.broadcast(alert_data)
 
 # AI Engine
 ai_engine = None
 
 from fastapi.responses import StreamingResponse
 
-# ... earlier imports ...
-
 # Real-time Stats Broadcaster
 async def broadcast_stats(data: dict):
-    for connection in active_connections:
-        try:
-            await connection.send_json(data)
-        except:
-             pass
+    await manager.broadcast(data)
 
 @app.on_event("startup")
 async def startup_event():
@@ -121,13 +103,12 @@ async def update_ai_context(data: dict):
 
 @app.websocket("/ws/alerts")
 async def websocket_alerts(websocket: WebSocket):
-    await websocket.accept()
-    active_connections.append(websocket)
+    await manager.connect(websocket)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        active_connections.remove(websocket)
+        manager.disconnect(websocket)
 
 @app.get("/")
 async def root():

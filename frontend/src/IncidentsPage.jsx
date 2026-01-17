@@ -3,7 +3,7 @@ import {
     Filter, Download, ExternalLink, ShieldAlert, Clock,
     MapPin, Loader2, EyeOff, RefreshCw, Trash2, Eye, X, Shield
 } from 'lucide-react';
-import { getIncidents, updateIncidentStatus } from './services/api';
+import { getIncidents } from './services/api';
 import IncidentDetailModal from './IncidentDetailModal';
 
 const IncidentsPage = ({ userRole }) => {
@@ -42,13 +42,11 @@ const IncidentsPage = ({ userRole }) => {
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-
-                if (data.type === 'incident_update') {
-                    // Sync status update across all windows
+                if (data.msg_type === 'incident_update') {
                     setIncidents(prev => prev.map(inc =>
-                        inc.id === data.incident_id ? { ...inc, status: data.status } : inc
+                        inc.id === data.id ? { ...inc, status: data.status } : inc
                     ));
-                } else if (data.type === 'incident') {
+                } else if (data.msg_type === 'incident' || data.type === 'Rapid Escalation') {
                     const newIncident = {
                         id: data.id || Date.now(),
                         timestamp: data.timestamp || new Date().toISOString(),
@@ -58,33 +56,18 @@ const IncidentsPage = ({ userRole }) => {
                         description: data.description || data.ai_summary || 'Activity detected',
                         ai_summary: data.ai_summary || '',
                         confidence: data.escalation_score || data.confidence || 0.75,
-                        status: data.status || 'Active',
+                        status: 'Active',
                         owner_id: data.owner_id || 'admin'
                     };
-                    setIncidents(prev => {
-                        const exists = prev.find(p => p.id === newIncident.id);
-                        if (exists) return prev;
-                        return [newIncident, ...prev];
-                    });
+                    setIncidents(prev => [newIncident, ...prev]);
                 }
             } catch (e) { console.warn('WS Alert Parse Error', e); }
         };
         return () => ws.close();
     }, []);
 
-    const handleHide = async (id) => {
-        try {
-            await updateIncidentStatus(id, 'Hidden');
-            // Local state will be updated by WS broadcast
-        } catch (err) { console.error("Update failed", err); }
-    };
-
-    const handleRestore = async (id) => {
-        try {
-            await updateIncidentStatus(id, 'Active');
-            // Local state will be updated by WS broadcast
-        } catch (err) { console.error("Update failed", err); }
-    };
+    const handleHide = (id) => setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'Hidden' } : inc));
+    const handleRestore = (id) => setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'Active' } : inc));
 
 
     const visibleIncidents = userRole === 'admin'
@@ -131,6 +114,7 @@ const IncidentsPage = ({ userRole }) => {
                             <th className="px-10 py-6">Identity / Type</th>
                             <th className="px-10 py-6">Source</th>
                             <th className="px-10 py-6">Confidence</th>
+                            {userRole === 'admin' && <th className="px-10 py-6">Operator</th>}
                             <th className="px-10 py-6">Timestamp</th>
                             <th className="px-10 py-6">Visibility</th>
                             {userRole === 'admin' && <th className="px-10 py-6 text-right">Admin</th>}
@@ -174,6 +158,13 @@ const IncidentsPage = ({ userRole }) => {
                                             <span className="text-primary font-bold text-xs font-mono">{Math.round((incident.confidence || 0) * 100)}%</span>
                                         </div>
                                     </td>
+                                    {userRole === 'admin' && (
+                                        <td className="px-10 py-8">
+                                            <span className="text-[10px] font-black uppercase text-slate-400 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                                ID: {incident.owner_id || 'SYSTEM'}
+                                            </span>
+                                        </td>
+                                    )}
                                     <td className="px-10 py-8 text-slate-500 text-sm font-medium">{formatDate(incident.timestamp)}</td>
                                     <td className="px-10 py-8">
                                         <span className={`text-[10px] font-black uppercase px-2 py-1 rounded ${incident.status === 'Hidden' ? 'bg-slate-800 text-slate-500' : 'bg-green-500/10 text-green-500'}`}>
