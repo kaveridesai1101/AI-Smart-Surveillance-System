@@ -10,21 +10,21 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Critical Vision Libs
-HAS_AI_LIBS = False
 try:
     import cv2
     import numpy as np
     HAS_AI_LIBS = True
 except ImportError:
+    HAS_AI_LIBS = False
     logger.warning("CRITICAL: OpenCV/NumPy not found. Webcam will NOT work.")
 
 # Advanced AI Libs (Optional/Conceptual for now)
-HAS_ADVANCED_AI = False
 try:
     import tensorflow as tf
     import google.generativeai as genai
     HAS_ADVANCED_AI = True
 except ImportError:
+    HAS_ADVANCED_AI = False
     logger.warning("Advanced AI (TF/GenAI) not found. Using logic placeholders.")
 
 class AIProcessor:

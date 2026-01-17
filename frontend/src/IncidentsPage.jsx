@@ -3,7 +3,7 @@ import {
     Filter, Download, ExternalLink, ShieldAlert, Clock,
     MapPin, Loader2, EyeOff, RefreshCw, Trash2, Eye, X, Shield
 } from 'lucide-react';
-import { getIncidents } from './services/api';
+import { getIncidents, updateIncidentStatus } from './services/api';
 import IncidentDetailModal from './IncidentDetailModal';
 
 const IncidentsPage = ({ userRole }) => {
@@ -41,26 +41,50 @@ const IncidentsPage = ({ userRole }) => {
         const ws = new WebSocket('ws://localhost:8001/ws/alerts');
         ws.onmessage = (event) => {
             try {
-                const alert = JSON.parse(event.data);
-                const newIncident = {
-                    id: Date.now(),
-                    timestamp: alert.timestamp || new Date().toISOString(),
-                    camera_id: alert.camera_id || 'Webcam',
-                    type: alert.type || 'Suspicious Activity',
-                    severity: alert.severity || 'Medium',
-                    description: alert.description || alert.ai_summary || 'Activity detected',
-                    ai_summary: alert.ai_summary || '',
-                    confidence: alert.escalation_score || alert.confidence || 0.75,
-                    status: 'Active'
-                };
-                setIncidents(prev => [newIncident, ...prev]);
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'incident_update') {
+                    // Sync status update across all windows
+                    setIncidents(prev => prev.map(inc =>
+                        inc.id === data.incident_id ? { ...inc, status: data.status } : inc
+                    ));
+                } else if (data.type === 'incident') {
+                    const newIncident = {
+                        id: data.id || Date.now(),
+                        timestamp: data.timestamp || new Date().toISOString(),
+                        camera_id: data.camera_id || 'Webcam',
+                        type: data.type || 'Suspicious Activity',
+                        severity: data.severity || 'Medium',
+                        description: data.description || data.ai_summary || 'Activity detected',
+                        ai_summary: data.ai_summary || '',
+                        confidence: data.escalation_score || data.confidence || 0.75,
+                        status: data.status || 'Active',
+                        owner_id: data.owner_id || 'admin'
+                    };
+                    setIncidents(prev => {
+                        const exists = prev.find(p => p.id === newIncident.id);
+                        if (exists) return prev;
+                        return [newIncident, ...prev];
+                    });
+                }
             } catch (e) { console.warn('WS Alert Parse Error', e); }
         };
         return () => ws.close();
     }, []);
 
-    const handleHide = (id) => setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'Hidden' } : inc));
-    const handleRestore = (id) => setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'Active' } : inc));
+    const handleHide = async (id) => {
+        try {
+            await updateIncidentStatus(id, 'Hidden');
+            // Local state will be updated by WS broadcast
+        } catch (err) { console.error("Update failed", err); }
+    };
+
+    const handleRestore = async (id) => {
+        try {
+            await updateIncidentStatus(id, 'Active');
+            // Local state will be updated by WS broadcast
+        } catch (err) { console.error("Update failed", err); }
+    };
 
 
     const visibleIncidents = userRole === 'admin'
@@ -81,8 +105,8 @@ const IncidentsPage = ({ userRole }) => {
                     <button
                         disabled={visibleIncidents.length === 0}
                         className={`px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition border border-white/5 ${visibleIncidents.length === 0
-                                ? 'bg-white/5 text-slate-600 cursor-not-allowed opacity-50'
-                                : 'bg-white/10 hover:bg-white/20 text-white shadow-lg'
+                            ? 'bg-white/5 text-slate-600 cursor-not-allowed opacity-50'
+                            : 'bg-white/10 hover:bg-white/20 text-white shadow-lg'
                             }`}
                     >
                         <Download size={18} /> Export Results
@@ -90,8 +114,8 @@ const IncidentsPage = ({ userRole }) => {
                     <button
                         disabled={visibleIncidents.length === 0}
                         className={`px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition shadow-lg ${visibleIncidents.length === 0
-                                ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
-                                : 'bg-primary hover:bg-primary/80 text-white shadow-primary/30'
+                            ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+                            : 'bg-primary hover:bg-primary/80 text-white shadow-primary/30'
                             }`}
                     >
                         <Filter size={18} /> Filters

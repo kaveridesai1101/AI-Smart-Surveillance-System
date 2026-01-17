@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { History, ShieldAlert, CheckCircle, ArrowUpRight, Loader2, Filter, AlertTriangle } from 'lucide-react';
-import { getIncidents, setUserContext } from './services/api';
+import { getIncidents, setUserContext, updateIncidentStatus } from './services/api';
 
 const OperatorAlerts = ({ userId }) => {
     const [incidents, setIncidents] = useState([]);
@@ -9,6 +9,25 @@ const OperatorAlerts = ({ userId }) => {
     useEffect(() => {
         setUserContext(userId);
         fetchAlerts();
+
+        // Real-time Sync
+        const ws = new WebSocket('ws://localhost:8001/ws/alerts');
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'incident') {
+                    if (data.owner_id === userId || userId === 'admin') {
+                        setIncidents(prev => [data, ...prev]);
+                    }
+                } else if (data.type === 'incident_update') {
+                    setIncidents(prev => prev.map(inc =>
+                        inc.id === data.id ? { ...inc, status: data.status } : inc
+                    ));
+                }
+            } catch (err) { console.error("WS Alert Error", err); }
+        };
+
+        return () => ws.close();
     }, [userId]);
 
     const fetchAlerts = async () => {
@@ -20,6 +39,14 @@ const OperatorAlerts = ({ userId }) => {
             console.error("Alerts Fetch Error", err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleStatusChange = async (id, status) => {
+        try {
+            await updateIncidentStatus(id, status);
+        } catch (err) {
+            console.error("Status Update Failed", err);
         }
     };
 
@@ -76,11 +103,17 @@ const OperatorAlerts = ({ userId }) => {
                             </div>
 
                             <div className="flex gap-2">
-                                <button className="px-5 py-2.5 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2">
-                                    <CheckCircle size={14} /> Acknowledge
+                                <button
+                                    onClick={() => handleStatusChange(inc.id, 'Acknowledged')}
+                                    className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2 ${inc.status === 'Acknowledged' ? 'bg-green-500 text-white' : 'bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white'}`}
+                                >
+                                    <CheckCircle size={14} /> {inc.status === 'Acknowledged' ? 'Acknowledged' : 'Acknowledge'}
                                 </button>
-                                <button className="px-5 py-2.5 bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border border-yellow-500/20">
-                                    <ArrowUpRight size={14} /> Escalate
+                                <button
+                                    onClick={() => handleStatusChange(inc.id, 'Escalated')}
+                                    className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center gap-2 border border-yellow-500/20 ${inc.status === 'Escalated' ? 'bg-yellow-500 text-white' : 'bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-white'}`}
+                                >
+                                    <ArrowUpRight size={14} /> {inc.status === 'Escalated' ? 'Escalated' : 'Escalate'}
                                 </button>
                             </div>
                         </div>

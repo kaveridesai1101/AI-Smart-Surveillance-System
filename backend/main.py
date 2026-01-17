@@ -22,7 +22,8 @@ def save_incident_to_db(incident_data: dict):
             description=incident_data['description'],
             ai_summary=incident_data['ai_summary'],
             confidence=incident_data.get('escalation_score', 0.0),
-            owner_id=incident_data.get('owner_id', 'admin')
+            owner_id=incident_data.get('owner_id', 'admin'),
+            status=incident_data.get('status', 'Active')
         )
         db.add(incident)
         db.commit()
@@ -47,6 +48,14 @@ app.add_middleware(
 active_connections: List[WebSocket] = []
 
 async def broadcast_alert(alert_data: dict):
+    # Ensure type is set if missing (for legacy or direct calls)
+    if "type" not in alert_data:
+        alert_data["type"] = "incident"
+    elif alert_data["type"] not in ["incident_update", "stats"]:
+        # If it's a specific detection type, wrap it
+        alert_data["detection_type"] = alert_data["type"]
+        alert_data["type"] = "incident"
+
     for connection in active_connections:
         await connection.send_text(json.dumps(alert_data))
 

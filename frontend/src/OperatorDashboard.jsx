@@ -21,6 +21,23 @@ const OperatorDashboard = ({ userId }) => {
             }
         };
         fetchData();
+
+        // Real-time Sync
+        const ws = new WebSocket('ws://localhost:8001/ws/alerts');
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'incident' && (data.owner_id === userId || userId === 'admin')) {
+                    setIncidents(prev => [data, ...prev]);
+                } else if (data.type === 'incident_update') {
+                    setIncidents(prev => prev.map(inc =>
+                        inc.id === data.id ? { ...inc, status: data.status } : inc
+                    ));
+                }
+            } catch (err) { console.error("WS Alert Error", err); }
+        };
+
+        return () => ws.close();
     }, [userId]);
 
     const activeIncidentsToday = incidents.filter(i =>

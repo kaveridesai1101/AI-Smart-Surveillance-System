@@ -15,5 +15,6 @@ export const addCamera = (camData) => api.post('/cameras/', null, { params: camD
 export const deleteCamera = (id) => api.delete(`/cameras/${id}`);
 export const getHealth = () => api.get('/health');
 export const setAIContext = (context) => api.post('/api/ai/context', context);
+export const updateIncidentStatus = (id, status) => api.patch(`/incidents/${id}/status`, null, { params: { status } });
 
 export default api;

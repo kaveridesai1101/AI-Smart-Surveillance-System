@@ -5,6 +5,6 @@ start "Sentinel Backend" powershell -Command ".\venv\Scripts\python -m backend.m
 start "Sentinel Frontend" powershell -Command "cd frontend; npm run dev"
 
 echo Started both services. 
-echo Backend: http://localhost:8001
+echo Backend: http://localhost:8000
 echo Frontend: http://localhost:5173
 pause

@@ -56,8 +56,21 @@ const SurveillanceDashboard = () => {
                 const data = JSON.parse(event.data);
                 if (data.type === 'stats') {
                     setMotionScore(data.score);
-                } else if (!data.type || data.type === 'Rapid Escalation') { // Actual incident object
-                    setIncidents(prev => [data, ...prev].slice(0, 10));
+                } else if (data.type === 'incident_update') {
+                    setIncidents(prev => prev.map(inc =>
+                        inc.id === data.incident_id ? { ...inc, status: data.status } : inc
+                    ));
+                } else if (data.type === 'incident') { // Actual incident object
+                    const newIncident = {
+                        ...data,
+                        id: data.id || Date.now(),
+                        status: data.status || 'Active'
+                    };
+                    setIncidents(prev => {
+                        const exists = prev.find(p => p.id === newIncident.id);
+                        if (exists) return prev;
+                        return [newIncident, ...prev].slice(0, 10);
+                    });
                     setStats(prev => ({
                         ...prev,
                         alertsToday: prev.alertsToday + 1,
@@ -134,6 +147,9 @@ const SurveillanceDashboard = () => {
                                     </div>
                                 </div>
                                 <div className="text-right">
+                                    <p className="text-[10px] font-mono text-slate-400 mb-1">
+                                        {inc.camera_id} • {inc.owner_id}
+                                    </p>
                                     <p className="text-xs font-mono text-slate-600 mb-1">{safeTime(inc.timestamp)}</p>
                                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${inc.severity === 'High' ? 'bg-red-500 text-white' : 'bg-primary text-white'}`}>
                                         {inc.severity}

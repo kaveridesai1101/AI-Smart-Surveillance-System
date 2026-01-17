@@ -29,5 +29,16 @@ async def update_incident_status(incident_id: int, status: str, db: Session = De
     incident = db.query(Incident).filter(Incident.id == incident_id).first()
     if not incident:
         raise HTTPException(status_code=404, detail="Incident not found")
-    # For now, just logging status update
+    
+    incident.status = status
+    db.commit()
+
+    # Broadcast update to all connected clients
+    from backend.main import broadcast_alert
+    await broadcast_alert({
+        "type": "incident_update",
+        "id": incident_id,
+        "status": status
+    })
+
     return {"message": "Status updated", "id": incident_id, "status": status}
