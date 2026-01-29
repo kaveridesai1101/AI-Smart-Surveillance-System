@@ -1,5 +1,3 @@
-is this okay---# IntentSentinel: AI-Based Intent & Escalation Detection 
-
 **IntentSentinel** is a proactive intelligence system that goes beyond traditional surveillance. It doesn't just watch for incidents—it understands behavioral intent and identifies escalation patterns before a threat manifests as a crisis.
 
 ---
